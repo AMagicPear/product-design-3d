@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { message } from "ant-design-vue";
 import { generatedImages } from "../stores/images";
 
 // 定义响应式数据
 const description = ref<string>();
-const generateCount = ref("4"); // 默认生成4张
+const generateCount = ref(4); // 默认生成4张
 
 const isGenerating = ref(false);
 
-// 模拟生成图片的函数
+watch(generateCount, (newCount) => {
+  console.log('generateCount changed:', newCount)
+})
+
+// 生成图片的函数 - 通过IPC调用主进程的API功能
 const generateImages = async () => {
-  console.log(description.value?.length);
   if (!description.value || description.value.trim().length === 0) {
     message.error("请输入图片描述");
     return;
@@ -21,10 +24,12 @@ const generateImages = async () => {
   generatedImages.value = [];
 
   try {
-    const count = parseInt(generateCount.value);
-
-
-    // generatedImages.value = mockImages;
+    const count = generateCount.value;
+    
+    // 通过IPC调用主进程的API功能
+    const images = await window.ipcRenderer.invoke('generate-images', description.value, count);
+    console.log('Generated images:', images)
+    generatedImages.value = [images];
     message.success(`成功生成${count}张图片`);
   } catch (error) {
     message.error("生成图片失败，请稍后重试");
@@ -49,14 +54,14 @@ const generateImages = async () => {
         />
         <div class="control-panel">
           <a-select
-            v-model="generateCount"
+            v-model:value="generateCount"
             style="width: 150px"
             placeholder="选择生成数量"
           >
-            <a-select-option value="1">1张</a-select-option>
-            <a-select-option value="2">2张</a-select-option>
-            <a-select-option value="4">4张</a-select-option>
-            <a-select-option value="6">6张</a-select-option>
+            <a-select-option :value="1">1张</a-select-option>
+            <a-select-option :value="2">2张</a-select-option>
+            <a-select-option :value="4">4张</a-select-option>
+            <a-select-option :value="6">6张</a-select-option>
           </a-select>
           <a-button
             type="primary"

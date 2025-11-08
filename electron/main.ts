@@ -1,8 +1,9 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 // import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import dotenv from 'dotenv'
+import axios from 'axios'
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -51,6 +52,40 @@ function createWindow() {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
 }
+
+ipcMain.handle('generate-images', async (_event, description: string, count: number) => {
+  try {
+    if (!process.env.ARK_API_KEY) {
+      throw new Error('ARK_API_KEY not found in environment variables')
+    }
+    console.log('generate-images', description, count)
+    const baseUrl = 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
+    const response = await axios.post(
+      baseUrl,
+      {
+        model: 'doubao-seedream-4-0-250828',
+        prompt: description,
+        "sequential_image_generation": "disabled",
+        "response_format": "url",
+        "size": "2K",
+        "stream": false,
+        "watermark": false
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.ARK_API_KEY}`
+        }
+      }
+    );
+    const imageUrl = response.data.data[0].url;
+    console.log('生成的图片 URL：', imageUrl);
+    return imageUrl;
+
+  } catch (error) {
+    console.error('请求失败：', error);
+  }
+})
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
