@@ -2,9 +2,11 @@
 import { ref, onMounted } from 'vue';
 import { currentImageUrl } from '../stores/images';
 import { message } from 'ant-design-vue';
+import ModelRenderer from '../components/ModelRenderer.vue';
 
 // 3D模型加载状态
 const isLoadingModel = ref(false);
+const modelUrl = ref<string>();
 
 // 模拟3D模型加载函数
 const loadModel = async () => {
@@ -52,21 +54,7 @@ const loadModel = async () => {
             </a-spin>
           </div>
           <div v-else class="model-display">
-            <!-- 这里应该是实际的3D模型渲染组件 -->
-            <!-- 目前使用模拟的3D模型占位符 -->
-            <div class="model-placeholder">
-              <svg width="100%" height="100%" viewBox="0 0 400 300">
-                <!-- 简单的3D立方体SVG -->
-                <g transform="translate(200, 150)">
-                  <path d="M-100,-50 L-60,-50 L-60,50 L-100,50 Z" fill="#333" opacity="0.3"/>
-                  <path d="M-60,-50 L100,-80 L100,120 L-60,50 Z" fill="#666" opacity="0.6"/>
-                  <path d="M100,-80 L60,-80 L60,120 L100,120 Z" fill="#999" opacity="0.9"/>
-                </g>
-                <text x="200" y="150" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="16">
-                  3D模型预览区域
-                </text>
-              </svg>
-            </div>
+            <ModelRenderer :model-url="modelUrl"/>
           </div>
         </div>
         <div class="model-controls">
