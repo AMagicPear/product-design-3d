@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, useTemplateRef, watch, ref } from 'vue';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { onMounted, onBeforeUnmount, useTemplateRef, watch, ref } from "vue";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // 定义组件属性
 const props = defineProps<{
   modelUrl?: string;
 }>();
 
-const modelContainer = useTemplateRef('modelContainer');
+const modelContainer = useTemplateRef("modelContainer");
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -25,13 +25,15 @@ let directionalLight: THREE.DirectionalLight | null = null;
 
 // 初始化场景
 const initScene = () => {
+  console.log("initScene 1");
   if (!modelContainer.value) {
     return;
   }
 
+  console.log("initScene 2");
   // 创建场景
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x181A1F);
+  scene.background = new THREE.Color(0x181a1f);
 
   // 创建相机
   camera = new THREE.PerspectiveCamera(
@@ -44,7 +46,10 @@ const initScene = () => {
 
   // 创建渲染器
   renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(modelContainer.value.clientWidth, modelContainer.value.clientHeight);
+  renderer.setSize(
+    modelContainer.value.clientWidth,
+    modelContainer.value.clientHeight
+  );
   modelContainer.value.appendChild(renderer.domElement);
 
   // 添加灯光
@@ -74,13 +79,14 @@ const initScene = () => {
   }
 
   // 处理窗口大小变化
-  window.addEventListener('resize', onWindowResize);
+  window.addEventListener("resize", onWindowResize);
 };
 
 // 加载 GLB 模型
 const loadModel = (url: string) => {
+  console.log("loading model1");
   if (!scene) return;
-  console.log("loading model", url);
+  console.log("loading model2");
   loading.value = true;
   error.value = null;
 
@@ -133,11 +139,11 @@ const loadModel = (url: string) => {
     },
     (xhr) => {
       // 可以添加进度条逻辑
-      console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+      console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
     },
     (err) => {
-      console.error('Failed to load model:', err);
-      error.value = '模型加载失败，请检查URL是否正确';
+      console.error("Failed to load model:", err);
+      error.value = "模型加载失败，请检查URL是否正确";
       loading.value = false;
     }
   );
@@ -147,9 +153,13 @@ const loadModel = (url: string) => {
 const onWindowResize = () => {
   if (!camera || !renderer || !modelContainer.value) return;
 
-  camera.aspect = modelContainer.value.clientWidth / modelContainer.value.clientHeight;
+  camera.aspect =
+    modelContainer.value.clientWidth / modelContainer.value.clientHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(modelContainer.value.clientWidth, modelContainer.value.clientHeight);
+  renderer.setSize(
+    modelContainer.value.clientWidth,
+    modelContainer.value.clientHeight
+  );
 };
 
 // 动画循环
@@ -190,7 +200,7 @@ onBeforeUnmount(() => {
     }
   }
 
-  window.removeEventListener('resize', onWindowResize);
+  window.removeEventListener("resize", onWindowResize);
 
   // 清理场景中的对象
   if (scene) {
@@ -205,6 +215,7 @@ onBeforeUnmount(() => {
 watch(
   () => props.modelUrl,
   (newUrl) => {
+    console.log("modelUrl changed", newUrl);
     if (newUrl) {
       loadModel(newUrl);
     }
@@ -216,13 +227,13 @@ watch(
 <template>
   <div class="model-renderer-container">
     <div ref="modelContainer" class="model-container"></div>
-    
+
     <!-- 加载状态指示器 -->
     <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
       <p>加载模型中...</p>
     </div>
-    
+
     <!-- 错误提示 -->
     <div v-if="error" class="error-overlay">
       <p class="error-message">{{ error }}</p>
@@ -267,8 +278,12 @@ watch(
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {

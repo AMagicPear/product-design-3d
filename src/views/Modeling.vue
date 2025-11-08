@@ -102,6 +102,7 @@ watch(
         </div>
         <div class="model-controls">
           <a-button type="default" @click="testF"> 测试 </a-button>
+          <a-button type="default" @click="modelUrl = undefined; modelTaskId = undefined"> 清除 </a-button>
           <a-button
             type="default"
             @click="startGenerateTask"
