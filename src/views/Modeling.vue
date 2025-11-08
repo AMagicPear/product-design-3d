@@ -1,33 +1,70 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { currentImageUrl } from '../stores/images';
-import { message } from 'ant-design-vue';
-import ModelRenderer from '../components/ModelRenderer.vue';
+import { ref, watch } from "vue";
+import { currentImageUrl } from "../stores/images";
+import { message } from "ant-design-vue";
+import ModelRenderer from "../components/ModelRenderer.vue";
+import { modelTaskId } from "../stores/models";
 
 // 3D模型加载状态
 const isLoadingModel = ref(false);
+const isDownloading = ref(false);
 const modelUrl = ref<string>();
 
 // 模拟3D模型加载函数
-const loadModel = async () => {
+const startGenerateTask = async () => {
   if (!currentImageUrl.value) {
-    message.warning('未选择图片，请先在生成页面选择图片');
+    message.warning("未选择图片，请先在生成页面选择图片");
     return;
   }
-  
+
   isLoadingModel.value = true;
   try {
-    const responseData = await window.ipcRenderer.invoke('generate-model', {
-      imageUrl: currentImageUrl.value
-    });
-    console.log('3D模型加载响应数据:', responseData);
-    message.success('3D模型加载成功');
+    const responseData = await window.ipcRenderer.invoke(
+      "generate-model",
+      currentImageUrl.value
+    );
+    modelTaskId.value = responseData.id as string;
+    message.success("模型生成任务创建成功");
   } catch (error) {
-    message.error('3D模型加载失败，请重试');
+    message.error("模型生成任务创建失败，请重试");
   } finally {
-    isLoadingModel.value = false;
+    isLoadingModel.value = true;
   }
 };
+
+const testF = () => {
+  modelTaskId.value = "cgt-20251108161302-2bgvw";
+  isLoadingModel.value = true;
+};
+
+watch(
+  modelTaskId,
+  async (newTaskId) => {
+    if (newTaskId) {
+      try {
+        let content = await window.ipcRenderer.invoke(
+          "get-model-status",
+          newTaskId
+        );
+        console.log(content);
+        isLoadingModel.value = false;
+        isDownloading.value = true;
+        let model = await window.ipcRenderer.invoke(
+          "download-and-extract-model",
+          content.file_url
+        );
+        modelUrl.value = model.glbFileUrl;
+        isDownloading.value = false;
+        console.log("downloaded model", model);
+      } catch (error) {
+        message.error("模型下载失败，请重试");
+        isDownloading.value = false;
+        isDownloading.value = false;
+      }
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -38,28 +75,39 @@ const loadModel = async () => {
       <div class="image-preview">
         <h3>原始图片</h3>
         <div v-if="currentImageUrl" class="image-container">
-          <img :src="currentImageUrl" alt="当前选中图片" class="selected-image" />
+          <img
+            :src="currentImageUrl"
+            alt="当前选中图片"
+            class="selected-image"
+          />
         </div>
         <div v-else class="no-image">
           <p>未选择图片，请先在生成页面选择图片</p>
         </div>
       </div>
-      
+
       <!-- 右侧3D模型预览 -->
       <div class="model-preview">
         <h3>3D模型</h3>
         <div class="model-container">
           <div v-if="isLoadingModel" class="loading-model">
-            <a-spin tip="正在生成3D模型...">
-            </a-spin>
+            <a-spin tip="正在生成3D模型..."> </a-spin>
+          </div>
+          <div v-else-if="isDownloading" class="loading-model">
+            <a-spin tip="正在下载模型..."> </a-spin>
           </div>
           <div v-else class="model-display">
-            <ModelRenderer :model-url="modelUrl"/>
+            <ModelRenderer :model-url="modelUrl" />
           </div>
         </div>
         <div class="model-controls">
-          <a-button type="default" @click="loadModel" :loading="isLoadingModel">
-            重新生成模型
+          <a-button type="default" @click="testF"> 测试 </a-button>
+          <a-button
+            type="default"
+            @click="startGenerateTask"
+            :loading="isLoadingModel"
+          >
+            开始生成模型
           </a-button>
         </div>
       </div>
@@ -132,7 +180,6 @@ const loadModel = async () => {
   font-size: 14px;
   margin-top: 10px;
 }
-
 
 .model-display {
   width: 100%;

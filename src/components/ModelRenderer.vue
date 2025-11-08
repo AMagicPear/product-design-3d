@@ -80,7 +80,7 @@ const initScene = () => {
 // 加载 GLB 模型
 const loadModel = (url: string) => {
   if (!scene) return;
-
+  console.log("loading model", url);
   loading.value = true;
   error.value = null;
 
