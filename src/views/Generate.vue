@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { message } from "ant-design-vue";
-import { generatedImages } from "../stores/images";
+import { useRouter } from 'vue-router';
+import { generatedImages, currentImageUrl } from "../stores/images";
 
-// 定义响应式数据
+const router = useRouter();
 const description = ref<string>();
 const sequentialImageGeneration = ref("auto");
-
 const isGenerating = ref(false);
 
 watch(sequentialImageGeneration, (newCount) => {
   console.log("sequentialImageGeneration changed:", newCount);
 });
+
+function imageChanged(current: number) {
+  currentImageUrl.value = generatedImages.value[current];
+}
 
 // 生成图片的函数 - 通过IPC调用主进程的API功能
 const generateImages = async () => {
@@ -22,6 +26,7 @@ const generateImages = async () => {
 
   isGenerating.value = true;
   generatedImages.value = [];
+  currentImageUrl.value = undefined;
 
   try {
     // 通过IPC调用主进程的API功能
@@ -39,6 +44,15 @@ const generateImages = async () => {
   } finally {
     isGenerating.value = false;
   }
+};
+
+// 跳转到建模页面的函数
+const navigateToModeling = () => {
+  if (!currentImageUrl.value) {
+    message.warning('请先选择一张图片');
+    return;
+  }
+  router.push('/modeling');
 };
 </script>
 
@@ -72,24 +86,36 @@ const generateImages = async () => {
             生成图片
           </a-button>
         </div>
+        <div class="modeling-button-container">
+          <a-button
+            type="default"
+            @click="navigateToModeling"
+            class="modeling-button"
+            :disabled="!currentImageUrl"
+          >
+            以当前图片生成模型
+          </a-button>
+        </div>
       </div>
 
       <!-- 右侧图片显示区域 -->
       <div class="image-section">
         <h2>生成结果</h2>
-        <a-image-preview-group v-if="generatedImages.length > 0">
-          <a-image
-            v-for="(image, index) in generatedImages"
-            :key="index"
-            :src="image"
-          />
-        </a-image-preview-group>
+        <a-carousel
+          arrows
+          dots-class="slick-dots slick-thumb"
+          v-if="generatedImages.length"
+          :after-change="imageChanged"
+        >
+          <div v-for="image in generatedImages">
+            <img :src="image" />
+          </div>
+        </a-carousel>
         <div v-else-if="!isGenerating" class="empty-state">
           <p>暂无生成的图片，请输入描述并点击生成按钮</p>
         </div>
         <div v-else class="loading-state">
           <a-spin tip="正在生成图片...">
-            <div class="loading-content"></div>
           </a-spin>
         </div>
       </div>
@@ -98,6 +124,36 @@ const generateImages = async () => {
 </template>
 
 <style scoped>
+:deep(.slick-dots) {
+  position: relative;
+  height: auto;
+}
+:deep(.slick-slide img) {
+  border: 5px solid transparent;
+  display: block;
+  margin: auto;
+  max-width: 80%;
+}
+:deep(.slick-arrow) {
+  display: none !important;
+}
+:deep(.slick-thumb) {
+  bottom: 0px;
+}
+:deep(.slick-thumb li) {
+  width: 60px;
+  height: 45px;
+}
+:deep(.slick-thumb li img) {
+  width: 100%;
+  height: 100%;
+  filter: grayscale(100%);
+  display: block;
+}
+:deep(.slick-thumb li.slick-active img) {
+  filter: grayscale(0%);
+}
+
 #generate {
   padding: 20px;
   height: 100%;
@@ -128,6 +184,20 @@ const generateImages = async () => {
   flex: 1;
 }
 
+
+.modeling-button-container {
+  margin-top: 10px;
+}
+
+:deep(.modeling-button-container button:disabled) {
+  background-color: #f5f5f5;
+  color: #999;
+}
+
+.modeling-button {
+  width: 100%;
+}
+
 .image-section {
   flex: 2;
   display: flex;
@@ -140,17 +210,29 @@ const generateImages = async () => {
 .loading-state {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #999;
-  border: 1px dashed #d9d9d9;
+  color: #ccc;
+  border: 1px dashed #555;
   border-radius: 20px;
   min-height: 300px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 20px;
+  transition: all 0.3s ease;
 }
 
-.loading-content {
-  width: 100px;
-  height: 100px;
+.empty-state:hover,
+.loading-state:hover {
+  border-color: #777;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 修改加载中的文本样式 */
+:deep(.ant-spin-text) {
+  color: #ccc !important;
+  font-size: 14px;
+  margin-top: 6px;
 }
 
 h2 {

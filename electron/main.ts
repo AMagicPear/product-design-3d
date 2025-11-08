@@ -69,7 +69,7 @@ ipcMain.handle('generate-images', async (_event, description: string, sequential
         "size": "2K",
         "stream": false,
         "watermark": false,
-        "sequential_image_generation_options":{
+        "sequential_image_generation_options": {
           'max_images': 6
         }
       },
@@ -84,6 +84,44 @@ ipcMain.handle('generate-images', async (_event, description: string, sequential
     console.log('生成的图片 URL：', imagesUrls);
     return imagesUrls;
 
+  } catch (error) {
+    console.error('请求失败：', error);
+  }
+})
+
+ipcMain.handle('generate-model', async (_event, url: string) => {
+  try {
+    if (!process.env.ARK_API_KEY) {
+      throw new Error('ARK_API_KEY not found in environment variables')
+    }
+    console.log('generate-model', url)
+    const baseUrl = 'https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks'
+    const response = await axios.post(
+      baseUrl,
+      {
+        model: 'doubao-seed3d-1-0-250928',
+        "content": [
+          {
+            "type": "text",
+            "text": "--subdivisionlevel medium --fileformat glb"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": url
+            }
+          }
+        ]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.ARK_API_KEY}`
+        }
+      }
+    );
+    const responseData = response.data
+    return responseData;
   } catch (error) {
     console.error('请求失败：', error);
   }
