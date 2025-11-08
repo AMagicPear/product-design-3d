@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "ant-design-vue": "~4.2.6",
+    "dotenv": "^17.2.3",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3"
   },
