@@ -1,0 +1,9 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Alibaba PuHuiTi 3.0', sans-serif;
+  background-color: #230d36;
+  color: #fff;
+  user-select: none;
+  height: 100vh;
+}
