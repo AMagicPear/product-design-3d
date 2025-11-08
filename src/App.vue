@@ -15,7 +15,6 @@
 
 <style lang="css" scoped>
 #header {
-  -webkit-app-region: drag;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -26,8 +25,8 @@
   border-radius: 20px;
   padding: 8px 10px;
   margin: 20px;
-  -webkit-app-region: no-drag;
   font-size: 15px;
+  z-index: 10;
 }
 
 #navigator a {

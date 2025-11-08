@@ -5,13 +5,13 @@ import { generatedImages } from "../stores/images";
 
 // 定义响应式数据
 const description = ref<string>();
-const generateCount = ref(4); // 默认生成4张
+const sequentialImageGeneration = ref("auto");
 
 const isGenerating = ref(false);
 
-watch(generateCount, (newCount) => {
-  console.log('generateCount changed:', newCount)
-})
+watch(sequentialImageGeneration, (newCount) => {
+  console.log("sequentialImageGeneration changed:", newCount);
+});
 
 // 生成图片的函数 - 通过IPC调用主进程的API功能
 const generateImages = async () => {
@@ -24,13 +24,15 @@ const generateImages = async () => {
   generatedImages.value = [];
 
   try {
-    const count = generateCount.value;
-    
     // 通过IPC调用主进程的API功能
-    const images = await window.ipcRenderer.invoke('generate-images', description.value, count);
-    console.log('Generated images:', images)
-    generatedImages.value = [images];
-    message.success(`成功生成${count}张图片`);
+    const images = await window.ipcRenderer.invoke(
+      "generate-images",
+      description.value,
+      sequentialImageGeneration.value
+    );
+    console.log("Generated images:", images);
+    generatedImages.value = images;
+    message.success(`成功生成${images.length}张图片`);
   } catch (error) {
     message.error("生成图片失败，请稍后重试");
     console.error("生成图片失败:", error);
@@ -54,14 +56,12 @@ const generateImages = async () => {
         />
         <div class="control-panel">
           <a-select
-            v-model:value="generateCount"
+            v-model:value="sequentialImageGeneration"
             style="width: 150px"
-            placeholder="选择生成数量"
+            placeholder="选择生成方式"
           >
-            <a-select-option :value="1">1张</a-select-option>
-            <a-select-option :value="2">2张</a-select-option>
-            <a-select-option :value="4">4张</a-select-option>
-            <a-select-option :value="6">6张</a-select-option>
+            <a-select-option value="disabled">仅生成1张</a-select-option>
+            <a-select-option value="auto">自动决定数量</a-select-option>
           </a-select>
           <a-button
             type="primary"
@@ -77,15 +77,13 @@ const generateImages = async () => {
       <!-- 右侧图片显示区域 -->
       <div class="image-section">
         <h2>生成结果</h2>
-        <div class="image-grid" v-if="generatedImages.length > 0">
+        <a-image-preview-group v-if="generatedImages.length > 0">
           <a-image
             v-for="(image, index) in generatedImages"
             :key="index"
             :src="image"
-            :preview="{ visible: false }"
-            class="generated-image"
           />
-        </div>
+        </a-image-preview-group>
         <div v-else-if="!isGenerating" class="empty-state">
           <p>暂无生成的图片，请输入描述并点击生成按钮</p>
         </div>
@@ -138,15 +136,6 @@ const generateImages = async () => {
   overflow: hidden;
 }
 
-.image-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 0;
-}
-
 .empty-state,
 .loading-state {
   flex: 1;
@@ -155,7 +144,7 @@ const generateImages = async () => {
   justify-content: center;
   color: #999;
   border: 1px dashed #d9d9d9;
-  border-radius: 8px;
+  border-radius: 20px;
   min-height: 300px;
 }
 

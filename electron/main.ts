@@ -37,7 +37,6 @@ function createWindow() {
     },
     width: 800,
     height: 600,
-    titleBarStyle: 'hiddenInset',
   })
 
   // Test active push message to Renderer-process.
@@ -53,23 +52,26 @@ function createWindow() {
   }
 }
 
-ipcMain.handle('generate-images', async (_event, description: string, count: number) => {
+ipcMain.handle('generate-images', async (_event, description: string, sequentialImageGeneration: string) => {
   try {
     if (!process.env.ARK_API_KEY) {
       throw new Error('ARK_API_KEY not found in environment variables')
     }
-    console.log('generate-images', description, count)
+    console.log('generate-images', description, sequentialImageGeneration)
     const baseUrl = 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
     const response = await axios.post(
       baseUrl,
       {
         model: 'doubao-seedream-4-0-250828',
         prompt: description,
-        "sequential_image_generation": "disabled",
+        "sequential_image_generation": sequentialImageGeneration,
         "response_format": "url",
         "size": "2K",
         "stream": false,
-        "watermark": false
+        "watermark": false,
+        "sequential_image_generation_options":{
+          'max_images': 6
+        }
       },
       {
         headers: {
@@ -78,9 +80,9 @@ ipcMain.handle('generate-images', async (_event, description: string, count: num
         }
       }
     );
-    const imageUrl = response.data.data[0].url;
-    console.log('生成的图片 URL：', imageUrl);
-    return imageUrl;
+    const imagesUrls = response.data.data.map((item: any) => item.url);
+    console.log('生成的图片 URL：', imagesUrls);
+    return imagesUrls;
 
   } catch (error) {
     console.error('请求失败：', error);
