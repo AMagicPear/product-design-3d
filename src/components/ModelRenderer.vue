@@ -1,40 +1,35 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, useTemplateRef, watch, ref } from "vue";
+import { onMounted, onBeforeUnmount, useTemplateRef, ref, watch } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-
-// 定义组件属性
 const props = defineProps<{
-  modelUrl?: string;
+  model?: {
+    glbFileUrl: string;
+    buffer: ArrayBuffer;
+  };
 }>();
 
 const modelContainer = useTemplateRef("modelContainer");
 const loading = ref(false);
-const error = ref<string | null>(null);
+const errorShow = ref<string | null>(null);
 
 // THREE.js 核心对象
-let scene: THREE.Scene | null = null;
+const scene = new THREE.Scene();
 let camera: THREE.PerspectiveCamera | null = null;
 let renderer: THREE.WebGLRenderer | null = null;
 let controls: OrbitControls | null = null;
-let model: THREE.Object3D | null = null;
 let animateId: number | null = null;
 let ambientLight: THREE.AmbientLight | null = null;
 let directionalLight: THREE.DirectionalLight | null = null;
+const loader = new GLTFLoader();
 
 // 初始化场景
 const initScene = () => {
-  console.log("initScene 1");
   if (!modelContainer.value) {
     return;
   }
-
-  console.log("initScene 2");
-  // 创建场景
-  scene = new THREE.Scene();
   scene.background = new THREE.Color(0x181a1f);
-
   // 创建相机
   camera = new THREE.PerspectiveCamera(
     75,
@@ -77,46 +72,21 @@ const initScene = () => {
     controls.enableZoom = true;
     controls.zoomSpeed = 0.5;
   }
-
-  // 处理窗口大小变化
-  window.addEventListener("resize", onWindowResize);
 };
 
 // 加载 GLB 模型
-const loadModel = (url: string) => {
-  console.log("loading model1");
-  if (!scene) return;
-  console.log("loading model2");
-  loading.value = true;
-  error.value = null;
-
-  const loader = new GLTFLoader();
+const loadModel = (model: { glbFileUrl: string; buffer: ArrayBuffer }) => {
+  console.log("model", model);
+  const blob = new Blob([model.buffer], { type: "model/gltf-binary" });
+  const url = URL.createObjectURL(blob);
   loader.load(
     url,
     (gltf) => {
-      // 清除之前的模型
-      if (model && scene) {
-        scene.remove(model);
-        model.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) {
-              if (Array.isArray(object.material)) {
-                object.material.forEach((mat) => mat.dispose());
-              } else {
-                object.material.dispose();
-              }
-            }
-          }
-        });
-      }
-
-      model = gltf.scene;
-      scene?.add(model);
-
+      scene.add(gltf.scene);
+      URL.revokeObjectURL(url);
       // 自动调整相机位置以适应模型
       if (camera) {
-        const box = new THREE.Box3().setFromObject(model);
+        const box = new THREE.Box3().setFromObject(gltf.scene);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
 
@@ -134,17 +104,12 @@ const loadModel = (url: string) => {
           controls.update();
         }
       }
-
-      loading.value = false;
     },
-    (xhr) => {
-      // 可以添加进度条逻辑
-      console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-    },
+    undefined,
     (err) => {
-      console.error("Failed to load model:", err);
-      error.value = "模型加载失败，请检查URL是否正确";
-      loading.value = false;
+      errorShow.value = `${err}`;
+      console.error(err);
+      URL.revokeObjectURL(url);
     }
   );
 };
@@ -177,10 +142,9 @@ const animate = () => {
 
 // 组件挂载时初始化
 onMounted(() => {
-  if (modelContainer.value) {
-    initScene();
-    animate();
-  }
+  initScene();
+  animate();
+  window.addEventListener("resize", onWindowResize);
 });
 
 // 组件卸载时清理
@@ -211,17 +175,12 @@ onBeforeUnmount(() => {
   }
 });
 
-// 监听 modelUrl 变化，重新加载模型
-watch(
-  () => props.modelUrl,
-  (newUrl) => {
-    console.log("modelUrl changed", newUrl);
-    if (newUrl) {
-      loadModel(newUrl);
-    }
-  },
-  { immediate: true }
-);
+watch(props, (new_props) => {
+  console.log("model changed");
+  if (new_props.model) {
+    loadModel(new_props.model);
+  }
+});
 </script>
 
 <template>
@@ -235,8 +194,8 @@ watch(
     </div>
 
     <!-- 错误提示 -->
-    <div v-if="error" class="error-overlay">
-      <p class="error-message">{{ error }}</p>
+    <div v-if="errorShow" class="error-overlay">
+      <p class="error-message">{{ errorShow }}</p>
     </div>
   </div>
 </template>

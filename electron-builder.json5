@@ -1,9 +1,9 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "ProductDesign3D",
   "asar": true,
-  "productName": "YourAppName",
+  "productName": "ProductDesign3D",
   "directories": {
     "output": "release/${version}"
   },

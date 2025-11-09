@@ -38,6 +38,7 @@ const generateImages = async () => {
     console.log("Generated images:", images);
     generatedImages.value = images;
     message.success(`成功生成${images.length}张图片`);
+    currentImageUrl.value = generatedImages.value[0];
   } catch (error) {
     message.error("生成图片失败，请稍后重试");
     console.error("生成图片失败:", error);

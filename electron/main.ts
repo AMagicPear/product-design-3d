@@ -192,64 +192,65 @@ ipcMain.handle('get-model-status', async (_event, taskId: string) => {
 ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => {
   try {
     console.log('开始处理模型文件:', fileUrl);
-    
+
     // 生成缓存键
     const cacheKey = getCacheKey(fileUrl);
     console.log(`缓存键: ${cacheKey}`);
-    
+
     // 检查是否有有效的缓存
     const cachedFilePath = checkCacheExists(cacheKey);
-    
-    if (cachedFilePath) {
-      // 直接使用缓存的文件
-      console.log('使用缓存文件:', cachedFilePath);
-      return { 
-        glbFileUrl: `file://${cachedFilePath}`,
-        tempDir: null // 因为使用缓存，不需要清理临时目录
-      };
-    }
-    
-    // 如果没有缓存，执行下载和解压流程
-    console.log('缓存不存在，开始下载');
-    
-    // 创建临时目录
+
+    let zipFilePath: string;
+    let hasCachedZIP = false;
     const tempDir = path.join(app.getPath('temp'), `model_${Date.now()}`);
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+
+    if (cachedFilePath) {
+      zipFilePath = cachedFilePath
+      hasCachedZIP = true;
+    } else {
+      // 如果没有缓存，执行下载流程
+      console.log('缓存不存在，开始下载');
+      // 创建临时目录
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      // 下载ZIP文件
+      zipFilePath = path.join(tempDir, 'model.zip');
+      await downloadFile(fileUrl, zipFilePath);
+      console.log('模型文件下载完成:', zipFilePath);
     }
-    
-    // 下载ZIP文件
-    const zipFilePath = path.join(tempDir, 'model.zip');
-    await downloadFile(fileUrl, zipFilePath);
-    console.log('模型文件下载完成:', zipFilePath);
-    
+
     // 解压ZIP文件
     const extractDir = path.join(tempDir, 'extracted');
     extractZipFile(zipFilePath, extractDir);
     console.log('模型文件解压完成:', extractDir);
-    
+
     // 查找解压后的glb文件
     let glbFilePath = findGlbFile(path.join(extractDir, 'rgb'));
     if (!glbFilePath) {
       glbFilePath = findGlbFile(path.join(extractDir, 'pbr'));
     }
-    
+
     if (!glbFilePath) {
       throw new Error('未找到GLB模型文件');
     }
-    
+
     console.log('找到GLB模型文件:', glbFilePath);
-    
+
     // 复制到缓存目录，以便下次使用
-    const cacheDir = getCacheDirectory();
-    const cachedGLBPath = path.join(cacheDir, cacheKey);
-    fs.copyFileSync(glbFilePath, cachedGLBPath);
-    console.log('模型已缓存到:', cachedGLBPath);
-    
+    if (!hasCachedZIP) {
+      const cacheDir = getCacheDirectory();
+      const cachedZIPPath = path.join(cacheDir, cacheKey);
+      fs.copyFileSync(zipFilePath, cachedZIPPath);
+      console.log('模型已缓存到:', cachedZIPPath);
+    }
+
+    const data = await fs.promises.readFile(glbFilePath);
+
     // 将文件路径转换为可在渲染进程中使用的URL
-    const glbFileUrl = `file://${glbFilePath}`;
-    return { glbFileUrl, tempDir };
-    
+    // const glbFileUrl = `file://${glbFilePath}`;
+    return { glbFileUrl: glbFilePath, buffer: data.buffer };
+
   } catch (error) {
     console.error('下载和解压模型失败:', error);
     throw error;
@@ -293,19 +294,43 @@ app.on('activate', () => {
 
 app.whenReady().then(createWindow)
 
+// // 添加本地文件读取的IPC处理器
+// ipcMain.handle('read-local-file', async (_event, filePath: string) => {
+//   console.log('read-local-file调用')
+//   try {
+//     // 验证文件路径是否在允许的目录范围内（例如只允许访问模型缓存目录）
+//     // const cacheDir = getCacheDirectory();
+//     const resolvedPath = path.resolve(filePath);
+    
+//     // // 确保请求的文件位于模型缓存目录内，增强安全性
+//     // if (!resolvedPath.startsWith(cacheDir)) {
+//     //   throw new Error('Access to the specified file path is not allowed');
+//     // }
+    
+//     // 读取文件内容
+//     const data = await fs.promises.readFile(resolvedPath);
+//     console.log("成功读取文件", data)
+//     // 将文件内容转换为ArrayBuffer返回
+//     return data.buffer;
+//   } catch (error) {
+//     console.error('Failed to read local file:', error);
+//     throw error;
+//   }
+// });
+
 // 下载文件的辅助函数
 function downloadFile(url: string, destination: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(destination);
-    
+
     https.get(url, (response) => {
       if (response.statusCode !== 200) {
         reject(new Error(`下载文件失败，状态码: ${response.statusCode}`));
         return;
       }
-      
+
       response.pipe(file);
-      
+
       file.on('finish', () => {
         file.close((err) => {
           if (err) {
@@ -371,7 +396,7 @@ const getCacheKey = (url: string): string => {
 const checkCacheExists = (cacheKey: string): string | null => {
   const cacheDir = getCacheDirectory();
   const cachedFilePath = path.join(cacheDir, cacheKey);
-  
+
   if (fs.existsSync(cachedFilePath)) {
     // 可以在这里添加缓存过期检查逻辑
     // 例如：检查文件创建时间，如果超过一定天数则视为过期
@@ -379,7 +404,7 @@ const checkCacheExists = (cacheKey: string): string | null => {
     const now = Date.now();
     const cacheAge = now - stats.ctimeMs;
     const maxCacheAge = 30 * 24 * 60 * 60 * 1000; // 30天
-    
+
     if (cacheAge < maxCacheAge) {
       console.log(`缓存文件有效，路径: ${cachedFilePath}`);
       return cachedFilePath;
@@ -388,7 +413,6 @@ const checkCacheExists = (cacheKey: string): string | null => {
       return null;
     }
   }
-  
+
   return null;
 };
-

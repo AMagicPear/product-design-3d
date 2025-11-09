@@ -8,7 +8,7 @@ import { modelTaskId } from "../stores/models";
 // 3D模型加载状态
 const isLoadingModel = ref(false);
 const isDownloading = ref(false);
-const modelUrl = ref<string>();
+const modelContent = ref<{ glbFileUrl: string; buffer: ArrayBuffer }>()
 
 // 模拟3D模型加载函数
 const startGenerateTask = async () => {
@@ -33,7 +33,7 @@ const startGenerateTask = async () => {
 };
 
 const testF = () => {
-  modelTaskId.value = "cgt-20251108161302-2bgvw";
+  modelTaskId.value = "cgt-20251109150813-nnt9l";
   isLoadingModel.value = true;
 };
 
@@ -53,13 +53,15 @@ watch(
           "download-and-extract-model",
           content.file_url
         );
-        modelUrl.value = model.glbFileUrl;
+        modelContent.value = model
+        // modelUrl.value = model.glbFileUrl;
         isDownloading.value = false;
-        console.log("downloaded model", model);
+        console.info("downloaded model", model);
       } catch (error) {
         message.error("模型下载失败，请重试");
         isDownloading.value = false;
-        isDownloading.value = false;
+        isLoadingModel.value = false;
+        // modelUrl.value = undefined;
       }
     }
   },
@@ -96,13 +98,13 @@ watch(
           <div v-else-if="isDownloading" class="loading-model">
             <a-spin tip="正在下载模型..."> </a-spin>
           </div>
-          <div v-else class="model-display">
-            <ModelRenderer :model-url="modelUrl" />
+          <div v-show="!isLoadingModel && !isDownloading" class="model-display">
+            <ModelRenderer :model="modelContent"/>
           </div>
         </div>
         <div class="model-controls">
           <a-button type="default" @click="testF"> 测试 </a-button>
-          <a-button type="default" @click="modelUrl = undefined; modelTaskId = undefined"> 清除 </a-button>
+          <a-button type="default" @click="modelTaskId = undefined"> 清除 </a-button>
           <a-button
             type="default"
             @click="startGenerateTask"
