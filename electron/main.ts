@@ -5,9 +5,9 @@ import path from 'node:path'
 import dotenv from 'dotenv'
 import axios from 'axios'
 import fs from 'node:fs';
-import https from 'node:https';
-import AdmZip from 'adm-zip';
-import crypto from 'node:crypto';
+import { checkCacheExists, downloadFile, extractZipFile, findGlbFile, getCacheDirectory, getCacheKey, readModelsRecord, writeModelsRecord } from './utils'
+import { ModelRecord } from './types'
+
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -188,67 +188,53 @@ ipcMain.handle('get-model-status', async (_event, taskId: string) => {
   }
 })
 
-
 ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => {
+  const cacheKey = getCacheKey(fileUrl);
+  const tempDir = path.join(app.getPath('temp'), `model_${cacheKey}`)
   try {
     console.log('开始处理模型文件:', fileUrl);
-
-    // 生成缓存键
-    const cacheKey = getCacheKey(fileUrl);
     console.log(`缓存键: ${cacheKey}`);
-
-    // 检查是否有有效的缓存
-    const cachedFilePath = checkCacheExists(cacheKey);
-
-    let zipFilePath: string;
-    let hasCachedZIP = false;
-    const tempDir = path.join(app.getPath('temp'), `model_${Date.now()}`);
-
-    if (cachedFilePath) {
-      zipFilePath = cachedFilePath
-      hasCachedZIP = true;
-    } else {
-      // 如果没有缓存，执行下载流程
+    let cachedFilePath: string | null = checkCacheExists(cacheKey);
+    // 如果没有缓存，执行下载流程
+    if (!cachedFilePath) {
       console.log('缓存不存在，开始下载');
-      // 创建临时目录
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-      // 下载ZIP文件
-      zipFilePath = path.join(tempDir, 'model.zip');
-      await downloadFile(fileUrl, zipFilePath);
-      console.log('模型文件下载完成:', zipFilePath);
+      if (!fs.existsSync(tempDir)) { fs.mkdirSync(tempDir, { recursive: true }); }
+      const tempZipPath = path.join(tempDir, 'model.zip')
+      await downloadFile(fileUrl, tempZipPath)
+      console.info('模型文件下载完成:', tempZipPath)
+      const cacheDir = getCacheDirectory();
+      cachedFilePath = path.join(cacheDir, cacheKey);
+      fs.copyFileSync(tempZipPath, cachedFilePath);
+      console.info('模型已缓存到:', cachedFilePath);
     }
-
     // 解压ZIP文件
     const extractDir = path.join(tempDir, 'extracted');
-    extractZipFile(zipFilePath, extractDir);
+    extractZipFile(cachedFilePath, extractDir);
     console.log('模型文件解压完成:', extractDir);
 
     // 查找解压后的glb文件
-    let glbFilePath = findGlbFile(path.join(extractDir, 'rgb'));
+    let glbFilePath = findGlbFile(path.join(extractDir, 'pbr'));
     if (!glbFilePath) {
-      glbFilePath = findGlbFile(path.join(extractDir, 'pbr'));
+      glbFilePath = findGlbFile(path.join(extractDir, 'rgb'));
     }
-
     if (!glbFilePath) {
       throw new Error('未找到GLB模型文件');
     }
 
-    console.log('找到GLB模型文件:', glbFilePath);
-
-    // 复制到缓存目录，以便下次使用
-    if (!hasCachedZIP) {
-      const cacheDir = getCacheDirectory();
-      const cachedZIPPath = path.join(cacheDir, cacheKey);
-      fs.copyFileSync(zipFilePath, cachedZIPPath);
-      console.log('模型已缓存到:', cachedZIPPath);
-    }
+    // 更新模型记录
+    const record: ModelRecord = {
+      url: fileUrl,
+      cacheKey,
+      cachedZIPPath: cachedFilePath,
+      timestamp: Date.now()
+    };
+    const records = await readModelsRecord();
+    records.push(record);
+    await writeModelsRecord(records);
 
     const data = await fs.promises.readFile(glbFilePath);
 
-    // 将文件路径转换为可在渲染进程中使用的URL
-    // const glbFileUrl = `file://${glbFilePath}`;
+    // 转换为buffer供前端使用
     return { glbFileUrl: glbFilePath, buffer: data.buffer };
 
   } catch (error) {
@@ -257,22 +243,9 @@ ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => 
   }
 });
 
-// 添加一个清除缓存的IPC处理器（可选）
-ipcMain.handle('clear-model-cache', async () => {
-  try {
-    const cacheDir = getCacheDirectory();
-    if (fs.existsSync(cacheDir)) {
-      fs.rmSync(cacheDir, { recursive: true, force: true });
-      fs.mkdirSync(cacheDir); // 重新创建缓存目录
-      console.log('模型缓存已清空');
-    }
-    return { success: true };
-  } catch (error) {
-    console.error('清空模型缓存失败:', error);
-    return { success: false, error: String(error) };
-  }
-});
-
+ipcMain.handle('get-all-models', async (event) => {
+  return await readModelsRecord()
+})
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
@@ -293,126 +266,3 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(createWindow)
-
-// // 添加本地文件读取的IPC处理器
-// ipcMain.handle('read-local-file', async (_event, filePath: string) => {
-//   console.log('read-local-file调用')
-//   try {
-//     // 验证文件路径是否在允许的目录范围内（例如只允许访问模型缓存目录）
-//     // const cacheDir = getCacheDirectory();
-//     const resolvedPath = path.resolve(filePath);
-    
-//     // // 确保请求的文件位于模型缓存目录内，增强安全性
-//     // if (!resolvedPath.startsWith(cacheDir)) {
-//     //   throw new Error('Access to the specified file path is not allowed');
-//     // }
-    
-//     // 读取文件内容
-//     const data = await fs.promises.readFile(resolvedPath);
-//     console.log("成功读取文件", data)
-//     // 将文件内容转换为ArrayBuffer返回
-//     return data.buffer;
-//   } catch (error) {
-//     console.error('Failed to read local file:', error);
-//     throw error;
-//   }
-// });
-
-// 下载文件的辅助函数
-function downloadFile(url: string, destination: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(destination);
-
-    https.get(url, (response) => {
-      if (response.statusCode !== 200) {
-        reject(new Error(`下载文件失败，状态码: ${response.statusCode}`));
-        return;
-      }
-
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close((err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-    }).on('error', (error) => {
-      fs.unlink(destination, () => {
-        reject(error);
-      });
-    });
-  });
-}
-
-// 解压ZIP文件的辅助函数
-function extractZipFile(zipFilePath: string, extractDir: string): void {
-  const zip = new AdmZip(zipFilePath);
-  zip.extractAllTo(extractDir, true);
-}
-
-// 查找GLB文件的辅助函数
-function findGlbFile(directory: string): string | null {
-  if (!fs.existsSync(directory)) {
-    return null;
-  }
-
-  const files = fs.readdirSync(directory);
-  for (const file of files) {
-    const filePath = path.join(directory, file);
-    const stat = fs.statSync(filePath);
-
-    if (stat.isDirectory()) {
-      const nestedGlb = findGlbFile(filePath);
-      if (nestedGlb) return nestedGlb;
-    } else if (file.toLowerCase().endsWith('.glb')) {
-      return filePath;
-    }
-  }
-
-  return null;
-}
-
-const getCacheDirectory = () => {
-  const cacheDir = path.join(app.getPath('userData'), 'model-cache');
-  if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
-  }
-  return cacheDir;
-};
-
-// 为文件URL生成唯一的缓存标识符
-const getCacheKey = (url: string): string => {
-  const hash = crypto.createHash('md5').update(url).digest('hex');
-  // 获取文件扩展名
-  const extension = path.extname(new URL(url).pathname) || '.glb';
-  return `${hash}${extension}`;
-};
-
-// 检查缓存是否存在
-const checkCacheExists = (cacheKey: string): string | null => {
-  const cacheDir = getCacheDirectory();
-  const cachedFilePath = path.join(cacheDir, cacheKey);
-
-  if (fs.existsSync(cachedFilePath)) {
-    // 可以在这里添加缓存过期检查逻辑
-    // 例如：检查文件创建时间，如果超过一定天数则视为过期
-    const stats = fs.statSync(cachedFilePath);
-    const now = Date.now();
-    const cacheAge = now - stats.ctimeMs;
-    const maxCacheAge = 30 * 24 * 60 * 60 * 1000; // 30天
-
-    if (cacheAge < maxCacheAge) {
-      console.log(`缓存文件有效，路径: ${cachedFilePath}`);
-      return cachedFilePath;
-    } else {
-      console.log(`缓存文件已过期，将重新下载`);
-      return null;
-    }
-  }
-
-  return null;
-};

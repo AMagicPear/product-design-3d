@@ -58,7 +58,7 @@ const navigateToModeling = () => {
 </script>
 
 <template>
-  <div id="generate">
+  <main id="generate">
     <div class="generate-container">
       <!-- 左侧文本输入区域 -->
       <div class="input-section">
@@ -121,7 +121,7 @@ const navigateToModeling = () => {
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>
@@ -153,12 +153,6 @@ const navigateToModeling = () => {
 }
 :deep(.slick-thumb li.slick-active img) {
   filter: grayscale(0%);
-}
-
-#generate {
-  padding: 20px;
-  height: 100%;
-  box-sizing: border-box;
 }
 
 .generate-container {

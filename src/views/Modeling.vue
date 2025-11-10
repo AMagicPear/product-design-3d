@@ -70,7 +70,7 @@ watch(
 </script>
 
 <template>
-  <div id="modeling">
+  <main id="modeling">
     <h2>3D模型预览</h2>
     <div class="modeling-container">
       <!-- 左侧当前选中图片 -->
@@ -115,15 +115,10 @@ watch(
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>
-#modeling {
-  padding: 20px;
-  height: 100%;
-  box-sizing: border-box;
-}
 
 .modeling-container {
   display: flex;
@@ -200,12 +195,6 @@ watch(
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
-}
-
-h2 {
-  margin-bottom: 10px;
-  font-size: 20px;
-  font-weight: 600;
 }
 
 h3 {

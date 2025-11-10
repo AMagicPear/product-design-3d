@@ -8,9 +8,7 @@
       <router-link to="/management">模型管理</router-link>
     </div>
   </div>
-  <main id="main">
-    <router-view />
-  </main>
+  <router-view />
 </template>
 
 <style lang="css" scoped>
