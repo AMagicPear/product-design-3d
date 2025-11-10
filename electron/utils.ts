@@ -4,7 +4,7 @@ import https from 'node:https';
 import AdmZip from 'adm-zip';
 import crypto from 'node:crypto';
 import { app } from 'electron'
-import { ModelRecord } from './types';
+import { ModelRecord } from '../public/types';
 
 // 下载文件的辅助函数
 export function downloadFile(url: string, destination: string): Promise<void> {

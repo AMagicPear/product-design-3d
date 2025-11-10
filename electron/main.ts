@@ -6,7 +6,7 @@ import dotenv from 'dotenv'
 import axios from 'axios'
 import fs from 'node:fs';
 import { checkCacheExists, downloadFile, extractZipFile, findGlbFile, getCacheDirectory, getCacheKey, readModelsRecord, writeModelsRecord } from './utils'
-import { ModelRecord } from './types'
+import { ModelRecord } from '../public/types'
 
 
 // const require = createRequire(import.meta.url)
@@ -229,9 +229,10 @@ ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => 
       timestamp: Date.now()
     };
     const records = await readModelsRecord();
-    records.push(record);
-    await writeModelsRecord(records);
-
+    if (!records.find(r => r.cacheKey === cacheKey)) {
+      records.push(record);
+      await writeModelsRecord(records);
+    }
     const data = await fs.promises.readFile(glbFilePath);
 
     // 转换为buffer供前端使用
