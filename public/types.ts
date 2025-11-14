@@ -4,3 +4,8 @@ export interface ModelRecord {
   cachedZIPPath: string;
   timestamp: number;
 }
+
+export interface ModelShow {
+  glbFileUrl: string;
+  buffer: ArrayBuffer;
+}

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, app } from 'electron'
+import { BrowserWindow, ipcMain, app, Notification } from 'electron'
 // import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -6,7 +6,7 @@ import dotenv from 'dotenv'
 import axios from 'axios'
 import fs from 'node:fs';
 import { checkCacheExists, downloadFile, extractZipFile, findGlbFile, getCacheDirectory, getCacheKey, readModelsRecord, writeModelsRecord } from './utils'
-import { ModelRecord } from '../public/types'
+import { ModelRecord, ModelShow } from '../public/types'
 
 
 // const require = createRequire(import.meta.url)
@@ -188,7 +188,7 @@ ipcMain.handle('get-model-status', async (_event, taskId: string) => {
   }
 })
 
-ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => {
+ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string): Promise<ModelShow> => {
   const cacheKey = getCacheKey(fileUrl);
   const tempDir = path.join(app.getPath('temp'), `model_${cacheKey}`)
   try {
@@ -206,6 +206,10 @@ ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => 
       cachedFilePath = path.join(cacheDir, cacheKey);
       fs.copyFileSync(tempZipPath, cachedFilePath);
       console.info('模型已缓存到:', cachedFilePath);
+      new Notification({
+        title: '模型下载完成',
+        body: '您的模型文件已成功下载并缓存。'
+      }).show()
     }
     // 解压ZIP文件
     const extractDir = path.join(tempDir, 'extracted');
@@ -236,7 +240,7 @@ ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => 
     const data = await fs.promises.readFile(glbFilePath);
 
     // 转换为buffer供前端使用
-    return { glbFileUrl: glbFilePath, buffer: data.buffer };
+    return { glbFileUrl: glbFilePath, buffer: data.buffer } as ModelShow;
 
   } catch (error) {
     console.error('下载和解压模型失败:', error);
@@ -244,7 +248,7 @@ ipcMain.handle('download-and-extract-model', async (_event, fileUrl: string) => 
   }
 });
 
-ipcMain.handle('get-all-models', async (event) => {
+ipcMain.handle('get-all-models', async (_event) => {
   return await readModelsRecord()
 })
 

@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { watch } from "vue";
 import { currentImageUrl } from "../stores/images";
 import { message } from "ant-design-vue";
 import ModelRenderer from "../components/ModelRenderer.vue";
-import { modelTaskId } from "../stores/models";
-
-// 3D模型加载状态
-const isLoadingModel = ref(false);
-const isDownloading = ref(false);
-const modelContent = ref<{ glbFileUrl: string; buffer: ArrayBuffer }>()
+import { isDownloading, isLoadingModel, modelContent, modelTaskId } from "../stores/models";
 
 // 模拟3D模型加载函数
 const startGenerateTask = async () => {
@@ -33,7 +28,7 @@ const startGenerateTask = async () => {
 };
 
 const testF = () => {
-  modelTaskId.value = "cgt-20251109150813-nnt9l";
+  modelTaskId.value = "cgt-20251111191451-dgk75";
   isLoadingModel.value = true;
 };
 

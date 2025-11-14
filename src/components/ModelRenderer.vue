@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, useTemplateRef, ref, watch } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { ModelShow } from "../../public/types";
 const props = defineProps<{
   model?: {
     glbFileUrl: string;
@@ -75,8 +76,32 @@ const initScene = () => {
 };
 
 // 加载 GLB 模型
-const loadModel = (model: { glbFileUrl: string; buffer: ArrayBuffer }) => {
+const loadModel = (model: ModelShow) => {
   console.log("model", model);
+  
+  // 清除场景中的旧模型，保留灯光和辅助工具
+  // 先记录需要保留的对象
+  const objectsToKeep: THREE.Object3D[] = [];
+  if (ambientLight) objectsToKeep.push(ambientLight);
+  if (directionalLight) objectsToKeep.push(directionalLight);
+  
+  // 查找并保留坐标轴辅助和网格辅助
+  scene.traverse((child) => {
+    if (child instanceof THREE.AxesHelper || child instanceof THREE.GridHelper) {
+      objectsToKeep.push(child);
+    }
+  });
+  
+  // 清除场景中的所有对象
+  while (scene.children.length > 0) {
+    scene.remove(scene.children[0]);
+  }
+  
+  // 重新添加需要保留的对象
+  objectsToKeep.forEach((obj) => {
+    scene.add(obj);
+  });
+  
   const blob = new Blob([model.buffer], { type: "model/gltf-binary" });
   const url = URL.createObjectURL(blob);
   loader.load(
