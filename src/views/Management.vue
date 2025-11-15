@@ -24,17 +24,28 @@ onMounted(async () => {
 const viewModel = async (model: ModelRecord) => {
   modelShow.value = await window.ipcRenderer.invoke("download-and-extract-model", model.url);
   modalOpen.value = true;
-  // Modal.info({
-  //   title: "查看模型",
-  //   content: () => (
-  //     <div class="model-renderer">
-  //       <ModelRenderer model={modelShow} />
-  //     </div>
-  //   ),
-  //   onOk() {
-  //     console.log("closed model view", modelShow.glbFileUrl);
-  //   },
-  // });
+};
+
+const deleteModel = async (model: ModelRecord) => {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除模型 "${model.cacheKey}" 吗？`,
+    onOk: async () => {
+      try {
+        const success = await window.ipcRenderer.invoke("delete-model", model.cacheKey);
+        if (success) {
+          // 从列表中移除删除的模型
+          models.value = models.value.filter(item => item.cacheKey !== model.cacheKey);
+          message.success("模型删除成功");
+        } else {
+          message.error("模型删除失败：未找到该模型");
+        }
+      } catch (error) {
+        console.error("删除模型时发生错误：", error);
+        message.error("模型删除失败，请重试");
+      }
+    }
+  });
 };
 </script>
 
@@ -51,7 +62,10 @@ const viewModel = async (model: ModelRecord) => {
         :bordered="false"
       >
         <p>创建时间: {{ new Date(model.timestamp).toLocaleString() }}</p>
-        <template #extra><a @click="viewModel(model)">查看</a></template>
+        <template #extra>
+          <a-button type="text" @click="viewModel(model)" style="margin-right: 8px;">查看</a-button>
+          <a-button type="text" danger @click="deleteModel(model)">删除</a-button>
+        </template>
       </Card>
     </div>
     <Modal v-model:open="modalOpen" title="查看模型">

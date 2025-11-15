@@ -252,6 +252,19 @@ ipcMain.handle('get-all-models', async (_event) => {
   return await readModelsRecord()
 })
 
+ipcMain.handle('delete-model', async (_event, cacheKey: string) => {
+  const records = await readModelsRecord();
+  const index = records.findIndex(r => r.cacheKey === cacheKey);
+  if (index !== -1) {
+    records.splice(index, 1);
+    await writeModelsRecord(records);
+    console.log(`模型 ${cacheKey} 已删除`);
+    return true;
+  }
+  console.log(`未找到模型 ${cacheKey}`);
+  return false;
+});
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
